@@ -182,6 +182,7 @@ const SIDEBAR_MARKER_PREFIX = "sidebar-marker-";
 
 export type SidebarListMarker =
   | `pinned-folder:${string}`
+  | `pinned-folder-drafts:${string}`
   | "pinned-header"
   | "active-placeholder"
   | "settled-placeholder"

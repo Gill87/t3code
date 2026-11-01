@@ -108,7 +108,7 @@ import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
 import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
-import { startNewThreadFromContext } from "../lib/chatThreadActions";
+import { resolveThreadActionProjectRef, startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
@@ -220,7 +220,7 @@ import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarT
 import { useSidebarPinnedFolders } from "../hooks/useSidebarPinnedFolders";
 import { groupPinnedThreads } from "../sidebarPinnedFolders";
 import { PinnedFolderDialog } from "./sidebar/PinnedFolderDialog";
-import { SidebarPinnedFolderHeader } from "./sidebar/SidebarListMarkers";
+import { SidebarPinnedFolderHeader, SidebarFolderDrafts } from "./sidebar/SidebarListMarkers";
 import { TooltipProvider } from "./ui/tooltip";
 import { composerDraftHasUserContent, DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
@@ -1067,6 +1067,29 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   );
 
   const { state: pinnedFolders, dispatch: updateFolders } = useSidebarPinnedFolders();
+  const draftSessions = useComposerDraftStore((store) => store.draftThreadsByThreadKey);
+  const folderDraftCounts: Record<string, number> = {};
+  for (const [draftId, session] of Object.entries(draftSessions)) {
+    const folderId = pinnedFolders.draftFolderById[draftId];
+    if (
+      folderId &&
+      session.promotedTo == null &&
+      (scopedProjectKeys === null ||
+        scopedProjectKeys.has(`${session.environmentId}:${session.projectId}`))
+    ) {
+      folderDraftCounts[folderId] = (folderDraftCounts[folderId] ?? 0) + 1;
+    }
+  }
+  const newChatProjectRef = resolveThreadActionProjectRef({
+    ...newThreadContext,
+    activeThread: newThreadContext.activeThread ?? undefined,
+  });
+  const handleNewFolderChat = async (folderId: string) => {
+    if (!newChatProjectRef) return;
+    const result = await handleNewThread(newChatProjectRef);
+    if (result) updateFolders({ type: "assign-draft", draftId: result.draftId, folderId });
+    if (isMobile) setOpenMobile(false);
+  };
   const [folderDialog, setFolderDialog] = useState<{
     id: string | null;
     name: string;
@@ -1717,6 +1740,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     const items: SidebarListItem[] = [{ kind: "marker", marker: "pinned-header" }];
     for (const group of visiblePinnedGroups) {
       if (group.folder) items.push({ kind: "marker", marker: `pinned-folder:${group.folder.id}` });
+      if (group.folder && !group.folder.collapsed && folderDraftCounts[group.folder.id]) {
+        items.push({ kind: "marker", marker: `pinned-folder-drafts:${group.folder.id}` });
+      }
       items.push(...rowsOf(group.visibleThreads, "pinned"));
     }
     items.push({ kind: "marker", marker: "pinned-divider" });
@@ -3135,6 +3161,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       const items: ReactNode[] = [
                         <SidebarDraftBlock
                           key="draft-sessions"
+                          draftFolderById={pinnedFolders.draftFolderById}
                           projectByKey={projectByKey}
                           projectDisplayNameByKey={projectDisplayNameByKey}
                           scopedProjectKeys={scopedProjectKeys}
@@ -3148,6 +3175,24 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           items.push(renderThreadRow(threadByKey.get(item.key)!, item.section));
                           continue;
                         }
+                        if (item.marker.startsWith("pinned-folder-drafts:")) {
+                          const id = item.marker.slice("pinned-folder-drafts:".length);
+                          items.push(
+                            <SidebarFolderDrafts key={item.marker} id={id}>
+                              <SidebarDraftBlock
+                                folderId={id}
+                                draftFolderById={pinnedFolders.draftFolderById}
+                                projectByKey={projectByKey}
+                                projectDisplayNameByKey={projectDisplayNameByKey}
+                                scopedProjectKeys={scopedProjectKeys}
+                                routeDraftId={routeDraftIdForRows}
+                                onNavigateToDraft={navigateToDraft}
+                                onDraftContextMenu={handleDraftContextMenu}
+                              />
+                            </SidebarFolderDrafts>,
+                          );
+                          continue;
+                        }
                         if (item.marker.startsWith("pinned-folder:")) {
                           const id = item.marker.slice("pinned-folder:".length);
                           const group = visiblePinnedGroups.find(
@@ -3159,7 +3204,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 key={item.marker}
                                 id={id}
                                 name={group.folder.name}
-                                count={group.threads.length}
+                                count={group.threads.length + (folderDraftCounts[id] ?? 0)}
+                                canCreateChat={newChatProjectRef !== null}
+                                onNewChat={() => {
+                                  void handleNewFolderChat(id);
+                                }}
                                 expanded={!group.folder.collapsed}
                                 isDropTarget={
                                   !isContextDrag &&

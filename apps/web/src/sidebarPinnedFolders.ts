@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import * as Effect from "effect/Effect";
 
 export const PinnedFoldersState = Schema.Struct({
   folders: Schema.Array(
@@ -9,16 +10,24 @@ export const PinnedFoldersState = Schema.Struct({
     }),
   ),
   threadFolderByKey: Schema.Record(Schema.String, Schema.String),
+  draftFolderById: Schema.Record(Schema.String, Schema.String).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
 });
 export type PinnedFoldersState = typeof PinnedFoldersState.Type;
 
-export const EMPTY_PINNED_FOLDERS: PinnedFoldersState = { folders: [], threadFolderByKey: {} };
+export const EMPTY_PINNED_FOLDERS: PinnedFoldersState = {
+  folders: [],
+  threadFolderByKey: {},
+  draftFolderById: {},
+};
 
 type FolderAction =
   | { type: "create"; id: string; name: string }
   | { type: "rename"; id: string; name: string }
   | { type: "delete"; id: string }
   | { type: "toggle"; id: string }
+  | { type: "assign-draft"; draftId: string; folderId: string }
   | { type: "move"; threadKeys: readonly string[]; folderId: string | null };
 
 export function updatePinnedFolders(
@@ -50,10 +59,23 @@ export function updatePinnedFolders(
       };
     case "delete":
       return {
+        ...state,
         folders: state.folders.filter((folder) => folder.id !== action.id),
         threadFolderByKey: Object.fromEntries(
           Object.entries(state.threadFolderByKey).filter(([, id]) => id !== action.id),
         ),
+        draftFolderById: Object.fromEntries(
+          Object.entries(state.draftFolderById).filter(([, id]) => id !== action.id),
+        ),
+      };
+    case "assign-draft":
+      if (!state.folders.some((folder) => folder.id === action.folderId)) return state;
+      return {
+        ...state,
+        folders: state.folders.map((folder) =>
+          folder.id === action.folderId ? { ...folder, collapsed: false } : folder,
+        ),
+        draftFolderById: { ...state.draftFolderById, [action.draftId]: action.folderId },
       };
     case "move": {
       if (

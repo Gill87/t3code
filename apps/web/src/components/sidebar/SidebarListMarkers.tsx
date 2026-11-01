@@ -10,7 +10,7 @@ import {
 } from "../Sidebar.logic";
 import { SIDEBAR_SORTABLE_DRAG_DISABLED } from "./SidebarThreadRow";
 import { SidebarThreadUndoNotice } from "./SidebarThreadUndoNotice";
-import { ChevronDownIcon, LayersIcon, MoreHorizontalIcon } from "lucide-react";
+import { ChevronDownIcon, LayersIcon, MoreHorizontalIcon, SquarePenIcon } from "lucide-react";
 import { Button } from "../ui/button";
 
 function SortableSidebarMarker(props: {
@@ -48,6 +48,8 @@ export function SidebarPinnedFolderHeader(props: {
   expanded: boolean;
   isDropTarget: boolean;
   onToggle: () => void;
+  onNewChat: () => void;
+  canCreateChat: boolean;
   onContextMenu: (position: { x: number; y: number }) => void;
 }) {
   return (
@@ -85,6 +87,16 @@ export function SidebarPinnedFolderHeader(props: {
         <Button
           size="icon-micro"
           variant="ghost-muted"
+          aria-label={`New chat in ${props.name}`}
+          title={`New chat in ${props.name}`}
+          disabled={!props.canCreateChat}
+          onClick={props.onNewChat}
+        >
+          <SquarePenIcon aria-hidden className="size-3" />
+        </Button>
+        <Button
+          size="icon-micro"
+          variant="ghost-muted"
           aria-label={`Manage folder ${props.name}`}
           onClick={(event) => {
             const rect = event.currentTarget.getBoundingClientRect();
@@ -94,6 +106,14 @@ export function SidebarPinnedFolderHeader(props: {
           <MoreHorizontalIcon aria-hidden className="size-3" />
         </Button>
       </div>
+    </SortableSidebarMarker>
+  );
+}
+
+export function SidebarFolderDrafts(props: { id: string; children: ReactNode }) {
+  return (
+    <SortableSidebarMarker marker={`pinned-folder-drafts:${props.id}`}>
+      <ul>{props.children}</ul>
     </SortableSidebarMarker>
   );
 }

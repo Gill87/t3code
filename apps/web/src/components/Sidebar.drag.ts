@@ -255,7 +255,9 @@ export function createSidebarSortingStrategy(input: {
       const rect = index === undefined ? undefined : rects[index];
       if (index !== undefined && rect)
         result[index] =
-          item.kind === "marker" && item.marker.startsWith("pinned-folder:")
+          item.kind === "marker" &&
+          (item.marker.startsWith("pinned-folder:") ||
+            item.marker.startsWith("pinned-folder-drafts:"))
             ? stationary
             : { ...stationary, y: top - rect.top };
       top += heights[projectedIndex]! + 1;
