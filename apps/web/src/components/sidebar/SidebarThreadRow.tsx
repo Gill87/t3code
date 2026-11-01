@@ -1364,6 +1364,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                               aria-hidden
                               ref={observeVisibleAnimation}
                               className="size-4 shrink-0 motion-safe:visible-animate-spin"
+                              style={{ animationDuration: "2s" }}
                             />
                           ) : topStatus.icon === "waiting" ? (
                             <CircleDotDashedIcon aria-hidden className="size-4 shrink-0" />
