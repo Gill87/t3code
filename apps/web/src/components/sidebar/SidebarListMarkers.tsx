@@ -10,6 +10,8 @@ import {
 } from "../Sidebar.logic";
 import { SIDEBAR_SORTABLE_DRAG_DISABLED } from "./SidebarThreadRow";
 import { SidebarThreadUndoNotice } from "./SidebarThreadUndoNotice";
+import { ChevronDownIcon, LayersIcon, MoreHorizontalIcon } from "lucide-react";
+import { Button } from "../ui/button";
 
 function SortableSidebarMarker(props: {
   marker: SidebarListMarker;
@@ -36,6 +38,53 @@ function SortableSidebarMarker(props: {
     >
       {props.children}
     </li>
+  );
+}
+
+export function SidebarPinnedFolderHeader(props: {
+  id: string;
+  name: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onContextMenu: (position: { x: number; y: number }) => void;
+}) {
+  return (
+    <SortableSidebarMarker marker={`pinned-folder:${props.id}`} className="mx-0.5 h-8 min-w-0">
+      <div
+        className="flex min-w-0 items-center"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          props.onContextMenu({ x: event.clientX, y: event.clientY });
+        }}
+      >
+        <button
+          type="button"
+          aria-expanded={props.expanded}
+          onClick={props.onToggle}
+          className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs font-medium text-sidebar-muted-foreground hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+        >
+          <ChevronDownIcon
+            aria-hidden
+            className={cn("size-3 shrink-0", !props.expanded && "-rotate-90")}
+          />
+          <LayersIcon aria-hidden className="size-3 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{props.name}</span>
+          <span className="font-normal tabular-nums">{props.count}</span>
+        </button>
+        <Button
+          size="icon-micro"
+          variant="ghost-muted"
+          aria-label={`Manage folder ${props.name}`}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            props.onContextMenu({ x: rect.right, y: rect.bottom });
+          }}
+        >
+          <MoreHorizontalIcon aria-hidden className="size-3" />
+        </Button>
+      </div>
+    </SortableSidebarMarker>
   );
 }
 

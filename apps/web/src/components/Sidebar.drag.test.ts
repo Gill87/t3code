@@ -10,6 +10,7 @@ import {
   resolveSidebarDropTarget,
   sidebarListItemId,
   sidebarMarkerId,
+  resolvePinnedFolderDrop,
   type SidebarListItem,
   type SidebarListMarker,
   type SidebarSection,
@@ -25,6 +26,66 @@ const pinnedHeader = marker("pinned-header");
 const divider = marker("pinned-divider");
 const settledHeader = marker("settled-header");
 const stationary = { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+
+describe("pinned folder drops", () => {
+  const items = [
+    pinnedHeader,
+    thread("unfiled", "pinned"),
+    marker("pinned-folder:work"),
+    thread("work-chat", "pinned"),
+    marker("pinned-folder:other"),
+    thread("other-chat", "pinned"),
+    divider,
+    thread("inbox", "active"),
+    settledHeader,
+  ];
+
+  it("assigns chats to the folder at the projected slot", () => {
+    expect(resolvePinnedFolderDrop(items, "unfiled", "work-chat")).toBe("work");
+    expect(resolvePinnedFolderDrop(items, "work-chat", "other-chat")).toBe("other");
+    expect(resolvePinnedFolderDrop(items, "work-chat", "unfiled")).toBeNull();
+    expect(resolvePinnedFolderDrop(items, "inbox", "other-chat")).toBe("other");
+  });
+
+  it("drops inside a folder header from either direction, including an empty folder", () => {
+    const over = sidebarMarkerId("pinned-folder:work");
+    expect(resolvePinnedFolderDrop(items, "unfiled", over)).toBe("work");
+    expect(resolvePinnedFolderDrop(items, "other-chat", over)).toBe("work");
+    const withEmpty = [
+      pinnedHeader,
+      marker("pinned-folder:empty"),
+      divider,
+      thread("inbox", "active"),
+      settledHeader,
+    ];
+    expect(
+      resolvePinnedFolderDrop(withEmpty, "inbox", sidebarMarkerId("pinned-folder:empty")),
+    ).toBe("empty");
+    expect(
+      resolveSidebarDropTarget(withEmpty, "inbox", sidebarMarkerId("pinned-folder:empty"))
+        ?.pinnedOrder,
+    ).toEqual(["inbox"]);
+  });
+
+  it("keeps folder headers visible during reorder previews", () => {
+    const positions = preview(
+      { items, settledOrder: [], settledExpanded: false },
+      "unfiled",
+      "work-chat",
+    );
+    expect(positions.get(sidebarMarkerId("pinned-folder:work"))?.scaleY).toBe(1);
+    expect(positions.get(sidebarMarkerId("pinned-folder:other"))?.scaleY).toBe(1);
+  });
+
+  it("previews a drop above the first folder without hiding the dragged chat", () => {
+    const positions = preview(
+      { items, settledOrder: [], settledExpanded: false },
+      "work-chat",
+      sidebarMarkerId("pinned-header"),
+    );
+    expect(positions.get("work-chat")?.scaleY).toBe(1);
+  });
+});
 
 function layout(
   items: readonly SidebarListItem[],

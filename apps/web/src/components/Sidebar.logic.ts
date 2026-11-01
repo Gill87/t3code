@@ -181,6 +181,7 @@ export function resolveSidebarThreadSection(input: {
 const SIDEBAR_MARKER_PREFIX = "sidebar-marker-";
 
 export type SidebarListMarker =
+  | `pinned-folder:${string}`
   | "pinned-header"
   | "active-placeholder"
   | "settled-placeholder"
@@ -199,6 +200,40 @@ export type SidebarListItem =
 
 export function sidebarListItemId(item: SidebarListItem): string {
   return item.kind === "thread" ? item.key : sidebarMarkerId(item.marker);
+}
+
+export function moveSidebarListItem(
+  items: readonly SidebarListItem[],
+  activeKey: string,
+  overId: string,
+) {
+  const from = items.findIndex((item) => sidebarListItemId(item) === activeKey);
+  const to = items.findIndex((item) => sidebarListItemId(item) === overId);
+  if (from < 0 || to < 0) return items;
+  const moved = [...items];
+  moved.splice(from, 1);
+  const over = items[to];
+  const destination =
+    over?.kind === "marker" && over.marker.startsWith("pinned-folder:")
+      ? moved.findIndex((item) => sidebarListItemId(item) === overId) + 1
+      : to;
+  moved.splice(destination, 0, items[from]!);
+  return moved;
+}
+
+export function resolvePinnedFolderDrop(
+  items: readonly SidebarListItem[],
+  activeKey: string,
+  overId: string,
+): string | null {
+  let folderId: string | null = null;
+  for (const item of moveSidebarListItem(items, activeKey, overId)) {
+    if (item.kind === "thread" && item.key === activeKey) return folderId;
+    if (item.kind === "marker" && item.marker.startsWith("pinned-folder:"))
+      folderId = item.marker.slice("pinned-folder:".length);
+    if (item.kind === "marker" && item.marker === "pinned-divider") break;
+  }
+  return null;
 }
 
 function sectionAtSidebarSlot(items: readonly SidebarListItem[], index: number): SidebarSection {
@@ -228,9 +263,11 @@ export function resolveSidebarDropTarget(
   const activeIndex = items.findIndex((item) => sidebarListItemId(item) === activeKey);
   const overIndex = items.findIndex((item) => sidebarListItemId(item) === overId);
   if (activeIndex === -1 || overIndex === -1 || items[activeIndex]?.kind !== "thread") return null;
-  const moved = items.filter((_, index) => index !== activeIndex);
-  moved.splice(overIndex, 0, items[activeIndex]!);
-  const section = sectionAtSidebarSlot(moved, overIndex);
+  const moved = moveSidebarListItem(items, activeKey, overId);
+  const section = sectionAtSidebarSlot(
+    moved,
+    moved.findIndex((item) => sidebarListItemId(item) === activeKey),
+  );
   if (section === "working" || section === "snoozed") return null;
   const pinnedOrder: string[] = [];
   const activeOrder: string[] = [];
@@ -961,7 +998,6 @@ export { sortActiveThreadsByOrderKey as sortThreadsForSidebar } from "@t3tools/c
 export {
   isThreadWorking as isSidebarThreadWorking,
   sortInboxThreadsByReturn,
-  sortWorkingThreadsBySend,
 } from "@t3tools/client-runtime/state/thread-inbox";
 
 export { pinOrderKeyBetween } from "@t3tools/client-runtime/state/thread-sort";

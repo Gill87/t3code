@@ -4,6 +4,7 @@ import {
   resolveSidebarDropTarget,
   sidebarListItemId,
   sidebarMarkerId,
+  moveSidebarListItem,
   type SidebarListItem,
   type SidebarListMarker,
   type SidebarSection,
@@ -173,7 +174,18 @@ export function createSidebarSortingStrategy(input: {
       else marker(`${name}-placeholder`);
     };
     marker("pinned-header");
-    projected.push(...groups.pinned);
+    if (items.some((item) => item.kind === "marker" && item.marker.startsWith("pinned-folder:"))) {
+      const moved = moveSidebarListItem(items, active.key, sidebarListItemId(over));
+      const divider = moved.findIndex(
+        (item) => item.kind === "marker" && item.marker === "pinned-divider",
+      );
+      projected.push(
+        ...moved
+          .slice(0, divider)
+          .filter((item) => item.kind !== "marker" || item.marker !== "pinned-header")
+          .map((item) => (item.kind === "thread" ? { ...item, section: "pinned" as const } : item)),
+      );
+    } else projected.push(...groups.pinned);
     marker("pinned-divider");
     section("active");
     if (items.some((item) => item.kind === "marker" && item.marker === "working-header")) {
