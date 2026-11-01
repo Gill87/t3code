@@ -1,4 +1,9 @@
-import { closestCenter, type CollisionDetection, type Modifier } from "@dnd-kit/core";
+import {
+  closestCenter,
+  pointerWithin,
+  type CollisionDetection,
+  type Modifier,
+} from "@dnd-kit/core";
 import { verticalListSortingStrategy, type SortingStrategy } from "@dnd-kit/sortable";
 import {
   resolveSidebarDropTarget,
@@ -41,6 +46,12 @@ export function createSidebarCollisionDetection(
   let previousPointerY = options.activationY;
   let boundarySection: "pinned" | "active" | undefined;
   return (args) => {
+    const folderCollisions = pointerWithin(args).filter(
+      (collision) =>
+        String(collision.id).startsWith(sidebarMarkerId("pinned-folder:")) &&
+        isValidTarget(String(collision.id)),
+    );
+    if (folderCollisions.length > 0) return folderCollisions;
     let collisions = closestCenter(args);
     const pointer = args.pointerCoordinates;
     const items = options.items;
@@ -113,6 +124,8 @@ export function createSidebarSortingStrategy(input: {
     const active = items[activeIndex];
     const over = items[overIndex] ?? active;
     if (active?.kind !== "thread" || !over || !rects[0]) return [];
+    if (over.kind === "marker" && over.marker.startsWith("pinned-folder:"))
+      return items.map(() => stationary);
     const target = resolveSidebarDropTarget(items, active.key, sidebarListItemId(over));
     if (!target) return [];
     const groups: Record<SidebarSection, ThreadItem[]> = {
@@ -240,7 +253,11 @@ export function createSidebarSortingStrategy(input: {
       }
       const index = indices.get(sidebarListItemId(item));
       const rect = index === undefined ? undefined : rects[index];
-      if (index !== undefined && rect) result[index] = { ...stationary, y: top - rect.top };
+      if (index !== undefined && rect)
+        result[index] =
+          item.kind === "marker" && item.marker.startsWith("pinned-folder:")
+            ? stationary
+            : { ...stationary, y: top - rect.top };
       top += heights[projectedIndex]! + 1;
     }
     result[activeIndex] = stationary;

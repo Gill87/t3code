@@ -75,7 +75,6 @@ export function groupPinnedThreads<T>(
   threads: readonly T[],
   state: PinnedFoldersState,
   keyOf: (thread: T) => string,
-  revealFolders = false,
 ) {
   const byFolder = new Map<string, T[]>(state.folders.map((folder) => [folder.id, []]));
   const unfiled: T[] = [];
@@ -89,6 +88,6 @@ export function groupPinnedThreads<T>(
   ];
   return groups.map((group) => ({
     ...group,
-    visibleThreads: group.folder?.collapsed && !revealFolders ? [] : group.threads,
+    visibleThreads: group.folder?.collapsed ? [] : group.threads,
   }));
 }

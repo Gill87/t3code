@@ -85,6 +85,63 @@ describe("pinned folder drops", () => {
     );
     expect(positions.get("work-chat")?.scaleY).toBe(1);
   });
+
+  it("keeps headers and rows stationary when the pointer targets a folder", () => {
+    const positions = preview(
+      { items, settledOrder: [], settledExpanded: false },
+      "inbox",
+      sidebarMarkerId("pinned-folder:work"),
+    );
+    for (const transform of positions.values()) expect(transform).toEqual(stationary);
+  });
+
+  it("keeps folder headers fixed while moving a card across other rows", () => {
+    const positions = preview(
+      { items, settledOrder: [], settledExpanded: false },
+      "inbox",
+      "work-chat",
+    );
+    expect(positions.get(sidebarMarkerId("pinned-folder:work"))).toEqual(stationary);
+    expect(positions.get(sidebarMarkerId("pinned-folder:other"))).toEqual(stationary);
+  });
+
+  it("appends to a closed folder without dropping hidden chats from the pin order", () => {
+    const collapsed = [
+      pinnedHeader,
+      marker("pinned-folder:work"),
+      marker("pinned-folder:other"),
+      divider,
+      thread("inbox", "active"),
+      settledHeader,
+    ];
+    const target = resolveSidebarDropTarget(
+      collapsed,
+      "inbox",
+      sidebarMarkerId("pinned-folder:work"),
+      {
+        order: ["hidden-a", "hidden-b", "other-chat"],
+        folderByKey: { "hidden-a": "work", "hidden-b": "work", "other-chat": "other" },
+      },
+    );
+    expect(target?.pinnedOrder).toEqual(["hidden-a", "hidden-b", "inbox", "other-chat"]);
+  });
+
+  it("preserves hidden chats when reordering a visible pin", () => {
+    const collapsed = [
+      pinnedHeader,
+      thread("unfiled", "pinned"),
+      marker("pinned-folder:work"),
+      marker("pinned-folder:other"),
+      thread("other-chat", "pinned"),
+      divider,
+      settledHeader,
+    ];
+    const target = resolveSidebarDropTarget(collapsed, "other-chat", "unfiled", {
+      order: ["unfiled", "hidden-a", "hidden-b", "other-chat"],
+      folderByKey: { "hidden-a": "work", "hidden-b": "work", "other-chat": "other" },
+    });
+    expect(target?.pinnedOrder).toEqual(["other-chat", "unfiled", "hidden-a", "hidden-b"]);
+  });
 });
 
 function layout(
@@ -160,6 +217,22 @@ describe("sidebar collision detection", () => {
       pointerCoordinates: null,
     } satisfies Parameters<CollisionDetection>[0];
   }
+
+  it("targets the folder under the pointer even while the dragged card center is elsewhere", () => {
+    const args = collisionArgs();
+    const folderId = sidebarMarkerId("pinned-folder:work");
+    const folderRect = args.droppableRects.get("blocked")!;
+    const collisions = createSidebarCollisionDetection(() => true)({
+      ...args,
+      collisionRect: args.droppableRects.get("source")!,
+      pointerCoordinates: { x: folderRect.left + 20, y: folderRect.top + 10 },
+      droppableContainers: args.droppableContainers.map((container) =>
+        container.id === "blocked" ? { ...container, id: folderId, key: folderId } : container,
+      ),
+      droppableRects: new Map([...args.droppableRects, [folderId, folderRect]]),
+    });
+    expect(collisions[0]?.id).toBe(folderId);
+  });
 
   it.each([
     [false, sidebarMarkerId("settled-header")],

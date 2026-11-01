@@ -259,6 +259,10 @@ export function resolveSidebarDropTarget(
   items: readonly SidebarListItem[],
   activeKey: string,
   overId: string,
+  pinnedContext?: {
+    readonly order: readonly string[];
+    readonly folderByKey: Readonly<Record<string, string>>;
+  },
 ): SidebarDropTarget | null {
   const activeIndex = items.findIndex((item) => sidebarListItemId(item) === activeKey);
   const overIndex = items.findIndex((item) => sidebarListItemId(item) === overId);
@@ -283,6 +287,26 @@ export function resolveSidebarDropTarget(
         break;
     } else if (currentSection === "pinned") pinnedOrder.push(item.key);
     else activeOrder.push(item.key);
+  }
+  if (section === "pinned" && pinnedContext) {
+    const completeOrder = pinnedContext.order.filter((key) => key !== activeKey);
+    const over = items[overIndex];
+    let insertionIndex = completeOrder.length;
+    if (over?.kind === "marker" && over.marker.startsWith("pinned-folder:")) {
+      const folderId = over.marker.slice("pinned-folder:".length);
+      const lastMember = completeOrder.findLastIndex(
+        (key) => pinnedContext.folderByKey[key] === folderId,
+      );
+      if (lastMember !== -1) insertionIndex = lastMember + 1;
+    } else {
+      const position = pinnedOrder.indexOf(activeKey);
+      const next = pinnedOrder[position + 1];
+      const previous = pinnedOrder[position - 1];
+      if (next !== undefined) insertionIndex = completeOrder.indexOf(next);
+      else if (previous !== undefined) insertionIndex = completeOrder.indexOf(previous) + 1;
+    }
+    completeOrder.splice(Math.max(0, insertionIndex), 0, activeKey);
+    return { section, pinnedOrder: completeOrder, activeOrder };
   }
   return { section, pinnedOrder, activeOrder };
 }

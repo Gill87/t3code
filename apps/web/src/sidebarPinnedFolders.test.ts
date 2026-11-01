@@ -75,11 +75,14 @@ describe("local pinned folders", () => {
     expect(group?.visibleThreads).toEqual([]);
   });
 
-  it("temporarily reveals collapsed folder contents during a drag without saving an expansion", () => {
+  it("keeps closed folders hidden while another folder is open", () => {
     let state = updatePinnedFolders(folders, { type: "move", threadKeys: ["a"], folderId: "work" });
     state = updatePinnedFolders(state, { type: "toggle", id: "work" });
-    expect(groupPinnedThreads(["a"], state, (key) => key, true)[1]?.visibleThreads).toEqual(["a"]);
-    expect(groupPinnedThreads(["a"], state, (key) => key)[1]?.visibleThreads).toEqual([]);
+    state = updatePinnedFolders(state, { type: "create", id: "other", name: "Other" });
+    state = updatePinnedFolders(state, { type: "move", threadKeys: ["b"], folderId: "other" });
+    const groups = groupPinnedThreads(["a", "b"], state, (key) => key);
+    expect(groups[1]?.visibleThreads).toEqual([]);
+    expect(groups[2]?.visibleThreads).toEqual(["b"]);
   });
 
   it("ignores invalid destinations, duplicate folders, and blank names", () => {

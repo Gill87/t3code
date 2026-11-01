@@ -46,13 +46,18 @@ export function SidebarPinnedFolderHeader(props: {
   name: string;
   count: number;
   expanded: boolean;
+  isDropTarget: boolean;
   onToggle: () => void;
   onContextMenu: (position: { x: number; y: number }) => void;
 }) {
   return (
     <SortableSidebarMarker marker={`pinned-folder:${props.id}`} className="mx-0.5 h-8 min-w-0">
       <div
-        className="flex min-w-0 items-center"
+        data-sidebar-folder-id={props.id}
+        className={cn(
+          "flex min-w-0 items-center rounded-md",
+          props.isDropTarget && "bg-primary/10 text-primary ring-1 ring-inset ring-primary/60",
+        )}
         onContextMenu={(event) => {
           event.preventDefault();
           props.onContextMenu({ x: event.clientX, y: event.clientY });
@@ -62,7 +67,10 @@ export function SidebarPinnedFolderHeader(props: {
           type="button"
           aria-expanded={props.expanded}
           onClick={props.onToggle}
-          className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs font-medium text-sidebar-muted-foreground hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+          className={cn(
+            "flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs font-medium hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
+            props.isDropTarget ? "text-primary" : "text-sidebar-muted-foreground",
+          )}
         >
           <ChevronDownIcon
             aria-hidden
@@ -70,7 +78,9 @@ export function SidebarPinnedFolderHeader(props: {
           />
           <LayersIcon aria-hidden className="size-3 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{props.name}</span>
-          <span className="font-normal tabular-nums">{props.count}</span>
+          <span className="shrink-0 font-normal tabular-nums">
+            {props.isDropTarget ? "Move here" : props.count}
+          </span>
         </button>
         <Button
           size="icon-micro"
